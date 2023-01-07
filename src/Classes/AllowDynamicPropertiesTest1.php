@@ -2,6 +2,7 @@
 
 namespace Mfonte\PHP82DynProps\Classes;
 
+use \AllowDynamicProperties;
 use Mfonte\PHP82DynProps\Traits\SetRandProps;
 
 #[AllowDynamicProperties]
