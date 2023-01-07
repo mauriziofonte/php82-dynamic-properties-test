@@ -30,7 +30,7 @@ class Helper
         for ($i = 0; $i < $count; $i++) {
             // get a unique key name
             while (true) {
-                $key = $lorum->word(rand(3, 10));
+                $key = "_" . $lorum->word(rand(3, 10));
                 if (!isset($payload[$key])) {
                     break;
                 }

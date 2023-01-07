@@ -12,24 +12,46 @@ class Command extends CLI
     private $command = null;
 
     private static $availableCommands = [
-        'deprecated' => 'Test the "Deprecated" class. This will trigger E_DEPRECATED warnings.',
-        'magicSetter' => 'Test the "MagicSetter" class. This will trigger E_DEPRECATED warnings.',
-        'badImplementation' => 'Test the "BadImplementation" class. This will trigger E_DEPRECATED warnings.',
-        'workingImplementation' => 'Test the "WorkingImplementation" class. This WILL NOT trigger any E_DEPRECATED warnings, thus allowing dynamic properties.',
-        'extendedClass' => 'Test the "ExtendedClass", that extends "WorkingImplementation". This WILL NOT trigger any E_DEPRECATED warnings, thus allowing dynamic properties.',
-        'usingTrait' => 'Test the "UsingTrait", that uses the "InjectProps" Trait. This WILL NOT trigger any E_DEPRECATED warnings, thus allowing dynamic properties.',
-        'all' => 'Test all the classes.',
+        'deprecated' => [
+            'description' => 'Test the "Deprecated" class. This will trigger E_DEPRECATED warnings.',
+            'expect' => 'This class is not using any #[AllowDynamicProperties] attribute. This will trigger E_DEPRECATED warnings.',
+            'call' => null
+        ],
+        'allowDynamicPropertiesTest1' => [
+            'description' => 'Test the "AllowDynamicPropertiesTest1" class. This should not trigger any E_DEPRECATED warning.',
+            'expect' => 'This class is using the #[AllowDynamicProperties] attribute. Dynamic properties are set in the constructor.',
+            'call' => null
+        ],
+        'allowDynamicPropertiesTest1OnExtended' => [
+            'description' => 'Test the "AllowDynamicPropertiesTest1OnExtended" class. This should not trigger any E_DEPRECATED warning.',
+            'expect' => 'This class is extending the "AllowDynamicPropertiesTest1" class, which is using the #[AllowDynamicProperties] attribute. Dynamic properties are set in the constructor.',
+            'call' => null
+        ],
+        'allowDynamicPropertiesTest2' => [
+            'description' => 'Test the "AllowDynamicPropertiesTest2" class. This should not trigger any E_DEPRECATED warning.',
+            'expect' => 'This class is using the #[AllowDynamicProperties] attribute. Dynamic properties are not automatically set in the constructor, but you can explicitly call the setProps method to set them.',
+            'call' => 'setProps'
+        ],
+        'allowDynamicPropertiesTest2OnExtended' => [
+            'description' => 'Test the "AllowDynamicPropertiesTest2OnExtended" class. This should not trigger any E_DEPRECATED warning.',
+            'expect' => 'This class is extending the "AllowDynamicPropertiesTest2" class, which is using the #[AllowDynamicProperties] attribute. Dynamic properties are not automatically set in the constructor, but you can explicitly call the setProps method to set them.',
+            'call' => 'setProps'
+        ],
+        'all' => [
+            'description' => 'Test all the classes.',
+            'expect' => 'This will run all the tests.'
+        ]
     ];
 
     // register options and arguments
     protected function setup(Options $options)
     {
-        $options->setHelp("A sample utility to test PHP 8.2 dynamic properties that are set within the class itself.");
+        $options->setHelp('A sample utility to test PHP 8.2 Dynamic Properties on Classes that set these within the class constructor itself, or classes that implement another method that sets dynamic properties.');
         $options->registerOption('verbose', 'verbose output', 'v');
 
         // register all $availableCommands
-        array_walk(self::$availableCommands, function($value, $key) use ($options) { 
-            $options->registerCommand($key, $value); 
+        array_walk(self::$availableCommands, function ($value, $key) use ($options) {
+            $options->registerCommand($key, $value['description']);
         });
     }
 
@@ -40,16 +62,16 @@ class Command extends CLI
         $this->command = $options->getCmd();
 
         // if the command is "all", run all the tests
-        if($this->command === 'all') {
+        if ($this->command === 'all') {
             $this->info('Testing all the classes.');
 
             // run all $availableCommands, but skip the "all" command
-            foreach(self::$availableCommands as $command => $description) {
-                if($command === 'all') {
+            foreach (self::$availableCommands as $command => $description) {
+                if ($command === 'all') {
                     continue;
                 }
 
-                $this->getInfo($command);
+                $this->getExpectInfo($command);
                 $this->instanceAndTest($command, $options);
             }
 
@@ -57,7 +79,7 @@ class Command extends CLI
         }
 
         // based on the context, show an help telling the user what to expect
-        $this->getInfo($this->command);
+        $this->getExpectInfo($this->command);
 
         // instance the class and run the test
         $this->instanceAndTest($this->command, $options);
@@ -70,26 +92,32 @@ class Command extends CLI
      *
      * @return void
      */
-    private function instanceAndTest(string $command, Options $options) {
+    private function instanceAndTest(string $command, Options $options)
+    {
         // instance the class represented by $command and test it
         switch ($command) {
             case 'deprecated':
-            case 'magicSetter':
-            case 'badImplementation':
-            case 'workingImplementation':
-            case 'extendedClass':
-            case 'usingTrait':
+            case 'allowDynamicPropertiesTest1':
+            case 'allowDynamicPropertiesTest1OnExtended':
+            case 'allowDynamicPropertiesTest2':
+            case 'allowDynamicPropertiesTest2OnExtended':
                 // init the full class name
-                $className = 'Mfonte\\PHP82DynProps\\Classes\\' . ucfirst($command); 
+                $className = 'Mfonte\\PHP82DynProps\\Classes\\' . ucfirst($command);
                 
                 // instance
                 $class = new $className();
 
                 // set a dynamic property
-                $class->__TESTME = 'some value';
+                $class->runtimeDynProp = 'some value';
+
+                // check if we have to explicitly call a method to set dynamic properties
+                if (self::$availableCommands[$command]['call']) {
+                    $method = self::$availableCommands[$command]['call'];
+                    $class->$method();
+                }
 
                 // dump the object
-                if($this->verbose) {
+                if ($this->verbose) {
                     $this->dump($class);
                 }
                 
@@ -105,44 +133,26 @@ class Command extends CLI
     /**
      * Show an info message, that represents the command we're testing.
      * Useful to let the developer know what to expect.
-     * 
+     *
      * @param string $command
-     * 
+     *
      * @return void
      */
-    private function getInfo(string $command) {
+    private function getExpectInfo(string $command)
+    {
         // show the class name we're testing
         $className = ucfirst($command);
         $this->info("Going to test {$className} class.");
 
-        // based on the $command, show an help telling the user what to expect
-        switch ($command) {
-            case 'deprecated':
-                $this->warning("This class is not using any #[AllowDynamicProperties] attribute. This will trigger E_DEPRECATED warnings.");
-                break;
-            case 'magicSetter':
-                $this->warning("This class is using #[AllowDynamicProperties] on the magic __set() method. This is not valid, and will trigger E_DEPRECATED warnings.");
-                break;
-            case 'badImplementation':
-                $this->warning("This class is using #[AllowDynamicProperties] on the class, but the class does not implement the required magic __set() method. Dynamic properties set within the class itself will trigger E_DEPRECATED warnings, but properties set outside of the class will be okay. See @https://php.watch/versions/8.2/dynamic-properties-deprecated#AllowDynamicProperties");
-                break;
-            case 'workingImplementation':
-                $this->warning("This class is using #[AllowDynamicProperties] on the class, and the class implements an empty magic __set() method. This will NOT trigger any E_DEPRECATED warnings, nor for the dynamic properties set within the class, nor for the properties set outside of it. See @https://php.watch/versions/8.2/dynamic-properties-deprecated#__get-__set");
-                break;
-            case 'extendedClass':
-                $this->warning("This class is extending the 'WorkingImplementation' class, and it will NOT trigger any E_DEPRECATED warnings, nor for the dynamic properties set within the class, nor for the properties set outside of it.");
-                break;
-            case 'usingTrait':
-                $this->warning("This class is using the 'InjectProps' trait, and it will NOT trigger any E_DEPRECATED warnings, nor for the dynamic properties set within the class, nor for the properties set outside of it.");
-                break;
-        }
+        // print the "expect" key on $availableCommands[$command]
+        $this->warning(self::$availableCommands[$command]['expect']);
     }
 
     /**
      * Dump an object to the console
-     * 
+     *
      * @param object $object
-     * 
+     *
      * @return void
      */
     private function dump($object)
