@@ -10,6 +10,8 @@ This repository is intended to show how to globally solve the `PHP Deprecated: C
 
 To make a _Class_ compatible with _Dynamic Attributes_, follow the below example, that is purposedly using a namespace.
 
+> Pay attention: in a project using namespaced classes, you will HAVE TO add the `use \AllowDynamicProperties;` to make this work. Otherwise, PHP won't know what "AllowDynamicProperties" is. Under the hoods, in fact, the attribute set above the Class definition is using [The AllowDynamicProperties class](https://www.php.net/manual/en/class.allowdynamicproperties.php), that really is a _Final Class_ itself.
+
 ```php
 <?php
 namespace App\Classes;
