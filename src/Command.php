@@ -37,6 +37,12 @@ class Command extends CLI
             'expect' => 'This class is extending the "AllowDynamicPropertiesTest2" class, which is using the #[AllowDynamicProperties] attribute. Dynamic properties are not automatically set in the constructor, but you can explicitly call the setProps method to set them.',
             'call' => 'setProps'
         ],
+        // StackOverflowUser706420Test
+        'stackOverflowUser706420Test' => [
+            'description' => 'Test the "StackOverflowUser706420Test" class. This should not trigger any E_DEPRECATED warning.',
+            'expect' => 'This class is using the #[AllowDynamicProperties] attribute, but is not using the fully-qualified "use \AllowDynamicProperties;" statement, though we are on a namespaced context, and that "use" statement is indeed needed. This test will trigger E_DEPRECATED warnings. This test is intended to let the community know that the comment https://stackoverflow.com/questions/74991682/php-8-2-dynamic-properties-deprecated-how-to-use-them-anyway-in-a-compatible-wa#comment134908738_75039639 is not consistent.',
+            'call' => null
+        ],
         'all' => [
             'description' => 'Test all the classes.',
             'expect' => 'This will run all the tests.'
@@ -101,6 +107,7 @@ class Command extends CLI
             case 'allowDynamicPropertiesTest1OnExtended':
             case 'allowDynamicPropertiesTest2':
             case 'allowDynamicPropertiesTest2OnExtended':
+            case 'stackOverflowUser706420Test':
                 // init the full class name
                 $className = 'Mfonte\\PHP82DynProps\\Classes\\' . ucfirst($command);
                 
